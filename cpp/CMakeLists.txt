@@ -3,8 +3,8 @@ project(TemporalRvl)
 
 include_directories("${PROJECT_SOURCE_DIR}/src")
 
-find_path(SYSTEM_INCLUDE_DIR zlib.h)
-include_directories(${SYSTEM_INCLUDE_DIR})
+find_path(VCPKG_INCLUDE_DIR NAMES zlib.h PATH_SUFFIXES zlib)
+include_directories(${VCPKG_INCLUDE_DIR})
 
 find_package(OpenCV REQUIRED)
 
