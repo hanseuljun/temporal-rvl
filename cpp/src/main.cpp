@@ -91,6 +91,12 @@ InputFile create_input_file(std::string folder_path, std::string filename)
 	return InputFile(filename, std::move(input), width, height);
 }
 
+void reset_input_file(InputFile& input_file)
+{
+	input_file.input_stream().clear();
+	input_file.input_stream().seekg(sizeof(int) * 3, std::ios::beg);
+}
+
 // Converts 16-bit buffers into OpenCV Mats.
 cv::Mat create_depth_mat(int width, int height, const short* depth_buffer)
 {
@@ -139,13 +145,15 @@ float mse(std::vector<short> true_values, std::vector<short> encoded_values)
     return sum / (float)count;
 }
 
-void write_result_output_line(std::ofstream& result_output, std::string filename, std::string type, Result result)
+void write_result_output_line(std::ofstream& result_output, InputFile& input_file, std::string type, Result result)
 {
-	result_output << filename << ", "
-				  << type << ", "
-				  << result.average_compression_time() << ", "
-				  << result.average_decompression_time() << ", "
-				  << result.compression_ratio() << ", "
+	result_output << input_file.filename() << ","
+				  << input_file.width() << ","
+				  << input_file.height() << ","
+				  << type << ","
+				  << result.average_compression_time() << ","
+				  << result.average_decompression_time() << ","
+				  << result.compression_ratio() << ","
 				  << result.average_psnr() << std::endl;
 }
 
@@ -339,21 +347,24 @@ void run_all_videos()
 {
 	const std::string DATA_FOLDER_PATH = "../../../data/";
 	const std::string RESULT_OUTPUT_FILE_PATH = "../../../output/result.csv";
+	const int INVALIDATION_THRESHOLD = 2;
+	const short CHANGE_THRESHOLD = 10;
+
 	std::vector<std::string> filenames(get_filenames_from_folder_path(DATA_FOLDER_PATH));
 	std::ofstream result_output(RESULT_OUTPUT_FILE_PATH, std::ios::out);
 
-	result_output << "filename, type, average_compression_time, average_decompression_time, \
-					  compression_ratio, average_psnr" << std::endl;
+	result_output << "filename,width,height,type,\
+					  average_compression_time,average_decompression_time,\
+					  compression_ratio,average_psnr" << std::endl;
 
 	for (auto& filename : filenames) {
-		Result rvl_result(run_rvl(create_input_file(DATA_FOLDER_PATH, filename)));
+		InputFile input_file(create_input_file(DATA_FOLDER_PATH, filename));
+		Result rvl_result(run_rvl(input_file));
+		write_result_output_line(result_output, input_file, "rvl", rvl_result);
 
-		int INVALIDATION_THRESHOLD = 2;
-		short CHANGE_THRESHOLD = 10;
-		Result trvl_result(run_trvl(create_input_file(DATA_FOLDER_PATH, filename), INVALIDATION_THRESHOLD, CHANGE_THRESHOLD));
-
-		write_result_output_line(result_output, filename, "rvl", rvl_result);
-		write_result_output_line(result_output, filename, "trvl", trvl_result);
+		reset_input_file(input_file);
+		Result trvl_result(run_trvl(input_file, INVALIDATION_THRESHOLD, CHANGE_THRESHOLD));
+		write_result_output_line(result_output, input_file, "trvl", trvl_result);
 	}
 }
 
