@@ -1,8 +1,8 @@
 #include <chrono>
 #include <cmath>
-#include <iostream>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
 
@@ -11,14 +11,16 @@
 class InputFile
 {
 public:
-	InputFile(std::ifstream&& input_stream, int width, int height)
-		: input_stream_(std::move(input_stream)), width_(width), height_(height) {}
+	InputFile(std::string filename, std::ifstream&& input_stream, int width, int height)
+		: filename_(filename), input_stream_(std::move(input_stream)), width_(width), height_(height) {}
 
+	std::string filename() { return filename_; }
 	std::ifstream& input_stream() { return input_stream_; }
 	int width() { return width_; }
 	int height() { return height_; }
 
 private:
+	std::string filename_;
 	std::ifstream input_stream_;
 	int width_;
 	int height_;
@@ -41,24 +43,27 @@ private:
 class Result
 {
 public:
-	Result(float average_time, float average_frame_size_ratio, float average_psnr)
-		: average_time_(average_time), average_frame_size_ratio_(average_frame_size_ratio),
-		  average_psnr_(average_psnr) {}
+	Result(float average_compression_time, float average_decompression_time, float compression_ratio, float average_psnr)
+		: average_compression_time_(average_compression_time), average_decompression_time_(average_decompression_time),
+		  compression_ratio_(compression_ratio), average_psnr_(average_psnr) {}
 
-	float average_time() { return average_time_; }
-	float average_frame_size_ratio() { return average_frame_size_ratio_; }
+	float average_compression_time() { return average_compression_time_; }
+	float average_decompression_time() { return average_decompression_time_; }
+	float compression_ratio() { return compression_ratio_; }
 	float average_psnr() { return average_psnr_; }
 
 private:
-	float average_time_;
-	float average_frame_size_ratio_;
+	float average_compression_time_;
+	float average_decompression_time_;
+	float compression_ratio_;
 	float average_psnr_;
 };
 
-std::vector<std::string> get_filenames_from_folder_path(std::string folder_path) {
+std::vector<std::string> get_filenames_from_folder_path(std::string folder_path)
+{
 	std::vector<std::string> filenames;
 	for (const auto& entry : std::filesystem::directory_iterator(folder_path)) {
-		std::string filename = std::filesystem::path(entry.path()).filename().string();
+		std::string filename = entry.path().filename().string();
 		if (filename == ".gitignore")
 			continue;
 		filenames.push_back(filename);
@@ -67,8 +72,9 @@ std::vector<std::string> get_filenames_from_folder_path(std::string folder_path)
 	return filenames;
 }
 
-InputFile create_input_file(std::string file_path) {
-	std::ifstream input(file_path, std::ios::binary);
+InputFile create_input_file(std::string folder_path, std::string filename)
+{
+	std::ifstream input(folder_path + filename, std::ios::binary);
 
 	if (input.fail())
 		throw std::exception("The filename was invalid.");
@@ -82,7 +88,7 @@ InputFile create_input_file(std::string file_path) {
 	if (byte_size != sizeof(short))
 		throw std::exception("The depth pixels are not 16-bit.");
 
-	return InputFile(std::move(input), width, height);
+	return InputFile(filename, std::move(input), width, height);
 }
 
 // Converts 16-bit buffers into OpenCV Mats.
@@ -133,11 +139,13 @@ float mse(std::vector<short> true_values, std::vector<short> encoded_values)
     return sum / (float)count;
 }
 
-void write_result_output_line(std::ofstream& result_output, std::string filename, std::string type, Result result) {
+void write_result_output_line(std::ofstream& result_output, std::string filename, std::string type, Result result)
+{
 	result_output << filename << ", "
 				  << type << ", "
-				  << result.average_time() << ", "
-				  << result.average_frame_size_ratio() << ", "
+				  << result.average_compression_time() << ", "
+				  << result.average_decompression_time() << ", "
+				  << result.compression_ratio() << ", "
 				  << result.average_psnr() << std::endl;
 }
 
@@ -152,16 +160,20 @@ Result run_rvl(InputFile& input_file)
 	// For the decompressed frame.
 	std::vector<short> depth_image;
 
-    float time_sum = 0.0f;
+	float compression_time_sum = 0.0f;
+	float decompression_time_sum = 0.0f;
     int compressed_size_sum = 0;
     int frame_count = 0;
     while (!input_file.input_stream().eof()) {
 		input_file.input_stream().read(reinterpret_cast<char*>(depth_buffer.data()), depth_buffer_size);
 
-        Timer timer;
+        Timer compression_timer;
         rvl_frame = rvl::compress(depth_buffer.data(), frame_size);
+        compression_time_sum += compression_timer.milliseconds();
+
+		Timer decompression_timer;
         depth_image = rvl::decompress(rvl_frame.data(), frame_size);
-        time_sum += timer.milliseconds();
+		decompression_time_sum += decompression_timer.milliseconds();
 
         auto depth_mat = create_depth_mat(input_file.width(), input_file.height(), depth_image.data());
 
@@ -173,13 +185,16 @@ Result run_rvl(InputFile& input_file)
         ++frame_count;
     }
 
-    float average_time = time_sum / frame_count;
-    float average_frame_size_ratio = compressed_size_sum / (float) (depth_buffer_size * frame_count);
+	float average_compression_time = compression_time_sum / frame_count;
+	float average_decompression_time = decompression_time_sum / frame_count;
+	float compression_ratio = (float)(depth_buffer_size * frame_count) / (float) compressed_size_sum;
     std::cout << "RVL" << std::endl
-              << "average time: " << average_time << " ms" << std::endl
-              << "average frame size ratio: " << average_frame_size_ratio << std::endl;
+			  << "filename: " << input_file.filename() << std::endl
+              << "average compression time: " << average_compression_time << " ms" << std::endl
+              << "average decompression time: " << average_decompression_time << " ms" << std::endl
+              << "compression ratio: " << compression_ratio << std::endl;
 
-	return Result(average_time, average_frame_size_ratio, 0.0f);
+	return Result(average_compression_time, average_decompression_time, compression_ratio, 0.0f);
 }
 
 Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_threshold)
@@ -199,7 +214,8 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
 	// For the decompressed frame.
     std::vector<short> depth_image;
 
-    float time_sum = 0.0f;
+	float compression_time_sum = 0.0f;
+	float decompression_time_sum = 0.0f;
     int compressed_size_sum = 0;
     float psnr_sum = 0.0f;
 	int zero_psnr_frame_count = 0;
@@ -207,7 +223,7 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
 
     while (!input_file.input_stream().eof()) {
 		input_file.input_stream().read(reinterpret_cast<char*>(depth_buffer.data()), depth_buffer_size);
-        Timer timer;
+        Timer compression_timer;
 		// Update the TRVL pixel values with the raw depth pixels.
         for (int i = 0; i < frame_size; ++i) {
 			trvl::update_pixel(trvl_pixels[i], depth_buffer[i], invalidation_threshold, change_threshold);
@@ -219,7 +235,11 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
 				prev_pixel_values[i] = trvl_pixels[i].value();
 			}
             rvl_frame = rvl::compress(prev_pixel_values.data(), frame_size);
-            depth_image = rvl::decompress(rvl_frame.data(), frame_size);
+			compression_time_sum += compression_timer.milliseconds();
+
+			Timer decompression_timer;
+			depth_image = rvl::decompress(rvl_frame.data(), frame_size);
+			decompression_time_sum += decompression_timer.milliseconds();
         } else {
             // Calculate pixel_diffs using prev_pixel_values
 			// and save current pixel values to prev_pixel_values for the next frame.
@@ -230,14 +250,17 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
             }
             // Compress and decompress the difference.
             rvl_frame = rvl::compress(pixel_diffs.data(), frame_size);
+			compression_time_sum += compression_timer.milliseconds();
+
+			Timer decompression_timer;
             auto diff_frame = rvl::decompress(rvl_frame.data(), frame_size);
             // Update depth_image of the previous frame using the difference
 			// between the previous frame and the current frame.
             for (int i = 0; i < frame_size; ++i) {
                 depth_image[i] += diff_frame[i];
             }
+			decompression_time_sum += decompression_timer.milliseconds();
         }
-		time_sum += timer.milliseconds();
 
         auto depth_mat = create_depth_mat(input_file.width(), input_file.height(), depth_image.data());
 
@@ -256,15 +279,18 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
 		++frame_count;
     }
 
-    float average_time = time_sum / frame_count;
-    float average_frame_size_ratio = compressed_size_sum / (float) (depth_buffer_size * frame_count);
+	float average_compression_time = compression_time_sum / frame_count;
+	float average_decompression_time = decompression_time_sum / frame_count;
+    float compression_ratio = (depth_buffer_size * frame_count) / (float) compressed_size_sum;
     float average_psnr = psnr_sum / (frame_count - zero_psnr_frame_count);
     std::cout << "Temporal RVL" << std::endl
-              << "average time: " << average_time << " ms" << std::endl
-              << "average frame size ratio: " << average_frame_size_ratio << std::endl
+			  << "filename: " << input_file.filename() << std::endl
+              << "average compression time: " << average_compression_time << " ms" << std::endl
+              << "average decompression time: " << average_decompression_time << " ms" << std::endl
+              << "compression ratio: " << compression_ratio << std::endl
               << "average PSNR: " << average_psnr << std::endl;
 
-	return Result(average_time, average_frame_size_ratio, average_psnr);
+	return Result(average_compression_time, average_decompression_time, compression_ratio, average_psnr);
 }
 
 void run_one_video()
@@ -288,8 +314,7 @@ void run_one_video()
 	}
 
 	std::string filename = filenames[filename_index];
-    std::string file_path = DATA_FOLDER_PATH + filename;
-	InputFile input_file(create_input_file(file_path));
+	InputFile input_file(create_input_file(DATA_FOLDER_PATH, filename));
 
 	for (;;) {
 		std::cout << "Enter compression type (0: RVL, 1: TRVL): ";
@@ -316,15 +341,16 @@ void run_all_videos()
 	const std::string RESULT_OUTPUT_FILE_PATH = "../../../output/result.csv";
 	std::vector<std::string> filenames(get_filenames_from_folder_path(DATA_FOLDER_PATH));
 	std::ofstream result_output(RESULT_OUTPUT_FILE_PATH, std::ios::out);
-	result_output << "filename, type, time, frame_size_ratio, psnr" << std::endl;
+
+	result_output << "filename, type, average_compression_time, average_decompression_time, \
+					  compression_ratio, average_psnr" << std::endl;
 
 	for (auto& filename : filenames) {
-		std::string file_path = DATA_FOLDER_PATH + filename;
-		Result rvl_result(run_rvl(create_input_file(file_path)));
+		Result rvl_result(run_rvl(create_input_file(DATA_FOLDER_PATH, filename)));
 
 		int INVALIDATION_THRESHOLD = 2;
 		short CHANGE_THRESHOLD = 10;
-		Result trvl_result(run_trvl(create_input_file(file_path), INVALIDATION_THRESHOLD, CHANGE_THRESHOLD));
+		Result trvl_result(run_trvl(create_input_file(DATA_FOLDER_PATH, filename), INVALIDATION_THRESHOLD, CHANGE_THRESHOLD));
 
 		write_result_output_line(result_output, filename, "rvl", rvl_result);
 		write_result_output_line(result_output, filename, "trvl", trvl_result);
@@ -337,7 +363,7 @@ void main()
 	std::string input;
 	std::cin >> input;
 
-	if (input == "y") {
+	if (input == "y" || input == "Y") {
 		run_all_videos();
 		return;
 	}
