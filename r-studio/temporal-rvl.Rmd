@@ -17,7 +17,9 @@ ggplot(trvl_data, aes(x = filename, y = average_compression_time, fill = type)) 
 ggplot(trvl_data, aes(x = filename, y = average_decompression_time, fill = type)) +
   geom_col(position = "dodge")
 
-ggplot(trvl_data, aes(x = filename, y = compression_ratio, fill = type)) +
+trvl_data %>%
+  filter(filename != "ppt2-empty") %>%
+  ggplot(aes(x = filename, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge")
 ```
 
