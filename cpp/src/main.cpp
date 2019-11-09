@@ -154,7 +154,7 @@ void write_result_output_line(std::ofstream& result_output, InputFile& input_fil
 				  << input_file.width() << ","
 				  << input_file.height() << ","
 				  << type << ","
-				  << change_threshold << ","
+		    	  << change_threshold << ","
 				  << invalidation_threshold << ","
 				  << result.average_compression_time() << ","
 				  << result.average_decompression_time() << ","

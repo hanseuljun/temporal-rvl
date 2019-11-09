@@ -5,17 +5,17 @@ title: "Temporal RVL"
 ```{r}
 library(tidyverse)
 
-convert_filename_to_video <- function(filename) {
+convert_filename_to_depth_stream <- function(filename) {
   if(filename == "comm-empty") {
-    return("V1")
+    return("DS1")
   } else if(filename == "comm-standing") {
-    return("V2")
+    return("DS2")
   } else if(filename == "comm-camera-movement") {
-    return("V3")
+    return("DS3")
   } else if(filename == "ppt2-empty") {
-    return("V4")
+    return("DS4")
   } else if(filename == "ppt2-sitting") {
-    return("V5")
+    return("DS5")
   } else {
     stop()
   }
@@ -34,7 +34,7 @@ convert_type_and_thresholds_to_type <- function(type, change_threshold, invalida
     return("TRVL w/o Preprocessing")
   } else if(invalidation_threshold == 0) {
     # TRVL without invalidation tolerance
-    return("TRVL w/o Invalid Pixel Tolerance")
+    return("TRVL w/o Invalitiy Tolerance")
   } else {
     # Full TRVL
     return("TRVL")
@@ -42,33 +42,33 @@ convert_type_and_thresholds_to_type <- function(type, change_threshold, invalida
 }
 
 result_data <- read_csv("../output/result.csv") %>%
-  mutate(video = map_chr(filename, convert_filename_to_video),
+  mutate(depth_stream = map_chr(filename, convert_filename_to_depth_stream),
          type = pmap_chr(list(type, change_threshold, invalidation_threshold), convert_type_and_thresholds_to_type)) %>%
-  mutate(video = factor(video),
-         type = factor(type, c("RVL", "TRVL w/o Preprocessing", "TRVL w/o Invalid Pixel Tolerance", "TRVL"))) %>%
-  select(video, type, average_compression_time, average_decompression_time, compression_ratio, average_psnr)
+  mutate(depth_stream = factor(depth_stream),
+         type = factor(type, c("RVL", "TRVL w/o Preprocessing", "TRVL w/o Invalitiy Tolerance", "TRVL"))) %>%
+  select(depth_stream, type, average_compression_time, average_decompression_time, compression_ratio, average_psnr)
 ```
-```{r}
+```{r, fig.width=10, fig.height=4}
 result_data %>%
   mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
-  ggplot(aes(x = video, y = average_compression_time, fill = type)) +
+  ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Video", y = "Average Compression Time (ms)", fill = "Type") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
+  labs(x = "Depth Stream", y = "Average Compression Time (ms)", fill = "Compression Method") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4)
 
 result_data %>%
   mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
-  ggplot(aes(x = video, y = average_decompression_time, fill = type)) +
+  ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Video", y = "Average Decompression Time (ms)", fill = "Type") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
+  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Compression Method") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4)
 
 result_data %>%
   mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
-  ggplot(aes(x = video, y = compression_ratio, fill = type)) +
+  ggplot(aes(x = depth_stream, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Video", y = "Compression Ratio", fill = "Type") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
+  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Compression Method") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4)
 ```
 
 ```{r}
@@ -77,7 +77,7 @@ get_ratio <- function(variable) {
 }
 
 comparison_table <- result_data %>%
-  filter(video != "V3" & video != "V4") %>%
+  filter(depth_stream != "DS3" & depth_stream != "DS4") %>%
   group_by(type) %>%
   summarise(average_compression_time = mean(average_compression_time),
             average_decompression_time = mean(average_decompression_time),
@@ -90,12 +90,12 @@ str_c("average decompression time: ", get_ratio(comparison_table$average_decompr
 str_c("compression ratio: ", get_ratio(comparison_table$compression_ratio))
 
 result_data %>%
-  filter(type == "TRVL w/o Invalid Pixel Tolerance") %>%
+  filter(type == "TRVL w/o Invalitiy Tolerance") %>%
   pull(average_psnr) %>%
-  { str_c("average_psnr mean: ", mean(.), ", min: ", min(.)) }
+  { str_c("TRVL w/o Invalitiy Tolerance PSNR mean: ", mean(.), ", min: ", min(.)) }
 
 result_data %>%
   filter(type == "TRVL") %>%
   pull(average_psnr) %>%
-  { str_c("average_psnr mean: ", mean(.), ", min: ", min(.)) }
+  { str_c("TRVL PSNR mean: ", mean(.), ", min: ", min(.)) }
 ```
