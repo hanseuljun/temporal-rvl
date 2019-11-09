@@ -282,7 +282,7 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
 		// The first frame goes through vanilla RVL which is lossless.
 		float mse_value = mse(depth_buffer, depth_image);
 		if (mse_value != 0.0f) {
-			psnr_sum += max(depth_buffer) / sqrt(mse_value);
+			psnr_sum += 20.0f * log10(max(depth_buffer) / sqrt(mse_value));
 		} else {
 			++zero_psnr_frame_count;
 		}

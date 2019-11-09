@@ -2,29 +2,94 @@
 title: "Temporal RVL"
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
 ```{r}
 library(tidyverse)
 
-trvl_data <- read_csv("../output/result.csv")
+convert_filename_to_video <- function(filename) {
+  if(filename == "comm-empty") {
+    return("V1")
+  } else if(filename == "comm-standing") {
+    return("V2")
+  } else if(filename == "comm-camera-movement") {
+    return("V3")
+  } else if(filename == "ppt2-empty") {
+    return("V4")
+  } else if(filename == "ppt2-sitting") {
+    return("V5")
+  } else {
+    stop()
+  }
+}
 
-ggplot(trvl_data, aes(x = filename, y = average_compression_time, fill = type)) +
-  geom_col(position = "dodge")
+result_data <- read_csv("../output/result.csv") %>%
+  mutate(video = factor(map_chr(filename, convert_filename_to_video))) %>%
+  mutate(type = factor(str_to_upper(type), c("TRVL", "RVL"))) %>%
+  select(video, type, average_compression_time, average_decompression_time, compression_ratio, average_psnr)
+```
+```{r}
+result_data %>%
+  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = video, y = average_compression_time, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Video", y = "Average Compression Time (ms)", fill = "Type") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
 
-ggplot(trvl_data, aes(x = filename, y = average_decompression_time, fill = type)) +
-  geom_col(position = "dodge")
+result_data %>%
+  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = video, y = average_decompression_time, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Video", y = "Average Decompression Time (ms)", fill = "Type") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
 
-trvl_data %>%
-  filter(filename != "ppt2-empty") %>%
-  ggplot(aes(x = filename, y = compression_ratio, fill = type)) +
-  geom_col(position = "dodge")
+result_data %>%
+  mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = video, y = compression_ratio, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Video", y = "Compression Ratio", fill = "Type") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+get_ratio <- function(variable) {
+  return(variable[[1]] / variable[[2]])
+}
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+comparison_table <- result_data %>%
+  filter(video != "V3" & video != "V4") %>%
+  group_by(type) %>%
+  summarise(average_compression_time = mean(average_compression_time),
+            average_decompression_time = mean(average_decompression_time),
+            compression_ratio = mean(compression_ratio))
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+comparison_table
+
+str_c("average compression time: ", get_ratio(comparison_table$average_compression_time))
+str_c("average decompression time: ", get_ratio(comparison_table$average_decompression_time))
+str_c("compression ratio: ", get_ratio(comparison_table$compression_ratio))
+
+result_data %>%
+  filter(type == "TRVL") %>%
+  pull(average_psnr) %>%
+  { str_c("average_psnr mean: ", mean(.), ", min: ", min(.)) }
+```
+
+
+```{r}
+trvl_data <- result_data %>% filter(type == "trvl")
+rvl_data <- result_data %>% filter(type == "rvl")
+
+ratio_data <- inner_join(trvl_data, rvl_data, by = c("filename", "width", "height")) %>%
+  mutate(average_compression_time = map2_dbl(average_compression_time.x, average_compression_time.y, ~ .x / .y),
+         average_decompression_time = map2_dbl(average_decompression_time.x, average_decompression_time.y, ~ .x / .y),
+         compression_ratio = map2_dbl(compression_ratio.x, compression_ratio.y, ~ .x / .y)) %>%
+  select(filename, width, height, average_compression_time, average_decompression_time, compression_ratio)
+
+ggplot(ratio_data, aes(x = filename, y = average_compression_time)) +
+  geom_col()
+
+ggplot(ratio_data, aes(x = filename, y = average_decompression_time)) +
+  geom_col()
+
+ggplot(ratio_data, aes(x = filename, y = compression_ratio)) +
+  geom_col()
+```
