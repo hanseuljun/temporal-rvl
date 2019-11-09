@@ -21,9 +21,31 @@ convert_filename_to_video <- function(filename) {
   }
 }
 
+convert_type_and_thresholds_to_type <- function(type, change_threshold, invalidation_threshold) {
+  if(type == "rvl") {
+    return("RVL")
+  }
+  if(type != "trvl") {
+    stop()
+  }
+  
+  if(change_threshold == 0) {
+    # TRVL without preprocessing
+    return("TRVL w/o Preprocessing")
+  } else if(invalidation_threshold == 0) {
+    # TRVL without invalidation tolerance
+    return("TRVL w/o Invalid Pixel Tolerance")
+  } else {
+    # Full TRVL
+    return("TRVL")
+  }
+}
+
 result_data <- read_csv("../output/result.csv") %>%
-  mutate(video = factor(map_chr(filename, convert_filename_to_video))) %>%
-  mutate(type = factor(str_to_upper(type), c("TRVL", "RVL"))) %>%
+  mutate(video = map_chr(filename, convert_filename_to_video),
+         type = pmap_chr(list(type, change_threshold, invalidation_threshold), convert_type_and_thresholds_to_type)) %>%
+  mutate(video = factor(video),
+         type = factor(type, c("RVL", "TRVL w/o Preprocessing", "TRVL w/o Invalid Pixel Tolerance", "TRVL"))) %>%
   select(video, type, average_compression_time, average_decompression_time, compression_ratio, average_psnr)
 ```
 ```{r}
@@ -42,7 +64,7 @@ result_data %>%
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.5)
 
 result_data %>%
-  mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = video, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge") +
   labs(x = "Video", y = "Compression Ratio", fill = "Type") +
@@ -51,7 +73,7 @@ result_data %>%
 
 ```{r}
 get_ratio <- function(variable) {
-  return(variable[[1]] / variable[[2]])
+  return(variable[[4]] / variable[[1]])
 }
 
 comparison_table <- result_data %>%
@@ -68,28 +90,12 @@ str_c("average decompression time: ", get_ratio(comparison_table$average_decompr
 str_c("compression ratio: ", get_ratio(comparison_table$compression_ratio))
 
 result_data %>%
+  filter(type == "TRVL w/o Invalid Pixel Tolerance") %>%
+  pull(average_psnr) %>%
+  { str_c("average_psnr mean: ", mean(.), ", min: ", min(.)) }
+
+result_data %>%
   filter(type == "TRVL") %>%
   pull(average_psnr) %>%
   { str_c("average_psnr mean: ", mean(.), ", min: ", min(.)) }
-```
-
-
-```{r}
-trvl_data <- result_data %>% filter(type == "trvl")
-rvl_data <- result_data %>% filter(type == "rvl")
-
-ratio_data <- inner_join(trvl_data, rvl_data, by = c("filename", "width", "height")) %>%
-  mutate(average_compression_time = map2_dbl(average_compression_time.x, average_compression_time.y, ~ .x / .y),
-         average_decompression_time = map2_dbl(average_decompression_time.x, average_decompression_time.y, ~ .x / .y),
-         compression_ratio = map2_dbl(compression_ratio.x, compression_ratio.y, ~ .x / .y)) %>%
-  select(filename, width, height, average_compression_time, average_decompression_time, compression_ratio)
-
-ggplot(ratio_data, aes(x = filename, y = average_compression_time)) +
-  geom_col()
-
-ggplot(ratio_data, aes(x = filename, y = average_decompression_time)) +
-  geom_col()
-
-ggplot(ratio_data, aes(x = filename, y = compression_ratio)) +
-  geom_col()
 ```

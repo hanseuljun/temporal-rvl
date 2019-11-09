@@ -19,5 +19,5 @@ private:
 	int invalid_count_;
 };
 
-void update_pixel(Pixel& pixel, short raw_value, int invalidation_threshold, short change_threshold);
+void update_pixel(Pixel& pixel, short raw_value, short change_threshold, int invalidation_threshold);
 }

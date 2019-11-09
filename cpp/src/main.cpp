@@ -147,12 +147,15 @@ float mse(std::vector<short> true_values, std::vector<short> encoded_values)
     return sum / (float)count;
 }
 
-void write_result_output_line(std::ofstream& result_output, InputFile& input_file, std::string type, Result result)
+void write_result_output_line(std::ofstream& result_output, InputFile& input_file, std::string type,
+							  int change_threshold, int invalidation_threshold, Result result)
 {
 	result_output << input_file.filename() << ","
 				  << input_file.width() << ","
 				  << input_file.height() << ","
 				  << type << ","
+				  << change_threshold << ","
+				  << invalidation_threshold << ","
 				  << result.average_compression_time() << ","
 				  << result.average_decompression_time() << ","
 				  << result.compression_ratio() << ","
@@ -207,7 +210,7 @@ Result run_rvl(InputFile& input_file)
 	return Result(average_compression_time, average_decompression_time, compression_ratio, 0.0f);
 }
 
-Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_threshold)
+Result run_trvl(InputFile& input_file, short change_threshold, int invalidation_threshold)
 {
     int frame_size = input_file.width() * input_file.height();
     int depth_buffer_size = frame_size * sizeof(short);
@@ -236,7 +239,7 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
         Timer compression_timer;
 		// Update the TRVL pixel values with the raw depth pixels.
         for (int i = 0; i < frame_size; ++i) {
-			trvl::update_pixel(trvl_pixels[i], depth_buffer[i], invalidation_threshold, change_threshold);
+			trvl::update_pixel(trvl_pixels[i], depth_buffer[i], change_threshold, invalidation_threshold);
         }
 
 		// For the first frame, since there is no previous frame to diff, run vanilla RVL.
@@ -292,7 +295,7 @@ Result run_trvl(InputFile& input_file, int invalidation_threshold, short change_
 	float average_compression_time = compression_time_sum / frame_count;
 	float average_decompression_time = decompression_time_sum / frame_count;
     float compression_ratio = (depth_buffer_size * frame_count) / (float) compressed_size_sum;
-    float average_psnr = psnr_sum / (frame_count - zero_psnr_frame_count);
+    float average_psnr = (frame_count > zero_psnr_frame_count) ? psnr_sum / (frame_count - zero_psnr_frame_count) : 0.0f;
     std::cout << "Temporal RVL" << std::endl
 			  << "filename: " << input_file.filename() << std::endl
               << "average compression time: " << average_compression_time << " ms" << std::endl
@@ -335,9 +338,9 @@ void run_one_video()
 			run_rvl(input_file);
 			break;
 		} else if (compression_type == "1") {
-			int INVALIDATION_THRESHOLD = 2;
 			short CHANGE_THRESHOLD = 10;
-			run_trvl(input_file, INVALIDATION_THRESHOLD, CHANGE_THRESHOLD);
+			int INVALIDATION_THRESHOLD = 2;
+			run_trvl(input_file, CHANGE_THRESHOLD, INVALIDATION_THRESHOLD);
 			break;
 		} else {
 			std::cout << "Invalid compression type." << std::endl;
@@ -349,24 +352,41 @@ void run_all_videos()
 {
 	const std::string DATA_FOLDER_PATH = "../../../data/";
 	const std::string RESULT_OUTPUT_FILE_PATH = "../../../output/result.csv";
-	const int INVALIDATION_THRESHOLD = 2;
 	const short CHANGE_THRESHOLD = 10;
+	const int INVALIDATION_THRESHOLD = 2;
 
 	std::vector<std::string> filenames(get_filenames_from_folder_path(DATA_FOLDER_PATH));
 	std::ofstream result_output(RESULT_OUTPUT_FILE_PATH, std::ios::out);
 
-	result_output << "filename,width,height,type,\
+	result_output << "filename,width,height,type,change_threshold,invalidation_threshold,\
 					  average_compression_time,average_decompression_time,\
 					  compression_ratio,average_psnr" << std::endl;
 
 	for (auto& filename : filenames) {
 		InputFile input_file(create_input_file(DATA_FOLDER_PATH, filename));
-		Result rvl_result(run_rvl(input_file));
-		write_result_output_line(result_output, input_file, "rvl", rvl_result);
-
-		reset_input_file(input_file);
-		Result trvl_result(run_trvl(input_file, INVALIDATION_THRESHOLD, CHANGE_THRESHOLD));
-		write_result_output_line(result_output, input_file, "trvl", trvl_result);
+		// RVL
+		{
+			Result rvl_result(run_rvl(input_file));
+			write_result_output_line(result_output, input_file, "rvl", 0, 0, rvl_result);
+		}
+		// TRVL with no preprocessing
+		{
+			reset_input_file(input_file);
+			Result trvl_result(run_trvl(input_file, 0, 0));
+			write_result_output_line(result_output, input_file, "trvl", 0, 0, trvl_result);
+		}
+		// TRVL with change tolerance but without invalidity tolerance.
+		{
+			reset_input_file(input_file);
+			Result trvl_result(run_trvl(input_file, CHANGE_THRESHOLD, 0));
+			write_result_output_line(result_output, input_file, "trvl", CHANGE_THRESHOLD, 0, trvl_result);
+		}
+		// TRVL with full preprocessing.
+		{
+			reset_input_file(input_file);
+			Result trvl_result(run_trvl(input_file, CHANGE_THRESHOLD, INVALIDATION_THRESHOLD));
+			write_result_output_line(result_output, input_file, "trvl", CHANGE_THRESHOLD, INVALIDATION_THRESHOLD, trvl_result);
+		}
 	}
 }
 
