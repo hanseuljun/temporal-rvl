@@ -6,15 +6,15 @@ title: "Temporal RVL"
 library(tidyverse)
 
 convert_filename_to_depth_stream <- function(filename) {
-  if(filename == "comm-empty") {
+  if(filename == "ppt2-empty") {
     return("DS1")
-  } else if(filename == "comm-standing") {
-    return("DS2")
-  } else if(filename == "comm-camera-movement") {
-    return("DS3")
-  } else if(filename == "ppt2-empty") {
-    return("DS4")
   } else if(filename == "ppt2-sitting") {
+    return("DS2")
+  } else if(filename == "comm-empty") {
+    return("DS3")
+  } else if(filename == "comm-standing") {
+    return("DS4")
+  } else if(filename == "comm-camera-movement") {
     return("DS5")
   } else {
     stop()
@@ -35,59 +35,145 @@ convert_type_and_thresholds_to_type <- function(type, change_threshold, invalida
   } else if(invalidation_threshold == 0) {
     # TRVL without invalidation tolerance
     return("TRVL w/o Invalitiy Tolerance")
-  } else {
-    # Full TRVL
-    return("TRVL")
+  } else if(change_threshold == 5) {
+    return("TRVL 0.5 cm")
+  } else if(change_threshold == 10) {
+    return("TRVL 1 cm")
+  } else if(change_threshold == 20) {
+    return("TRVL 2 cm")
+  } else if(change_threshold == 30) {
+    return("TRVL 3 cm")
   }
 }
 
 result_data <- read_csv("../output/result.csv") %>%
   mutate(depth_stream = map_chr(filename, convert_filename_to_depth_stream),
          type = pmap_chr(list(type, change_threshold, invalidation_threshold), convert_type_and_thresholds_to_type)) %>%
-  mutate(depth_stream = factor(depth_stream),
-         type = factor(type, c("RVL", "TRVL w/o Preprocessing", "TRVL w/o Invalitiy Tolerance", "TRVL"))) %>%
-  select(depth_stream, type, average_compression_time, average_decompression_time, compression_ratio, average_psnr)
+  mutate(depth_stream = factor(depth_stream)) %>%
+  select(depth_stream, type, compression_ratio, average_compression_time, average_decompression_time, average_psnr)
 ```
-```{r, fig.width=10, fig.height=4}
-result_data %>%
-  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
-  ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
-  geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Compression Time (ms)", fill = "Compression Method") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4)
 
-result_data %>%
-  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
-  ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
-  geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Compression Method") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4)
+```{r, fig.width=8, fig.height=5}
+to_methods_type <- function(type) {
+  if(type == "RVL" | type == "TRVL w/o Preprocessing" | type == "TRVL w/o Invalitiy Tolerance")
+    return(type)
+  
+  if(type == "TRVL 1 cm")
+    return("TRVL")
+  
+  return(NA)
+}
 
-result_data %>%
+methods_data <- result_data %>%
+  mutate(type = map(type, to_methods_type)) %>%
+  filter(!is.na(type)) %>%
+  mutate(type = factor(type, c("RVL", "TRVL w/o Preprocessing", "TRVL w/o Invalitiy Tolerance", "TRVL")))
+
+methods_data %>%
   mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge") +
   labs(x = "Depth Stream", y = "Compression Ratio", fill = "Compression Method") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4)
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+
+methods_data %>%
+  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Average Compression Time (ms)", fill = "Compression Method") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+
+methods_data %>%
+  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Compression Method") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+
+methods_data %>%
+  mutate(label = map_chr(average_psnr, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = average_psnr, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Compression Method") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+```
+
+```{r, fig.width=8, fig.height=5}
+to_thresholds_type <- function(type) {
+  if(type == "TRVL 0.5 cm")
+    return("0.5 cm")
+  
+  if(type == "TRVL 1 cm")
+    return("1 cm")
+  
+  if(type == "TRVL 2 cm")
+    return("2 cm")
+  
+  if(type == "TRVL 3 cm")
+    return("3 cm")
+  
+  return(NA)
+}
+
+thresholds_data <- result_data %>%
+  mutate(type = map(type, to_thresholds_type)) %>%
+  filter(!is.na(type)) %>%
+  mutate(type = factor(type, c("0.5 cm", "1 cm", "2 cm", "3 cm")))
+
+thresholds_data %>%
+  mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = compression_ratio, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Change Threshold") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+
+thresholds_data %>%
+  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Average Compression Time (ms)", fill = "Change Threshold") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+
+thresholds_data %>%
+  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Change Threshold") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
+
+thresholds_data %>%
+  mutate(label = map_chr(average_psnr, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  ggplot(aes(x = depth_stream, y = average_psnr, fill = type)) +
+  geom_col(position = "dodge") +
+  labs(x = "Depth Stream", y = "Average PSNR", fill = "Change Threshold") +
+  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
 get_ratio <- function(variable) {
-  return(variable[[4]] / variable[[1]])
+  return(variable[[3]] / variable[[1]])
 }
 
 comparison_table <- result_data %>%
-  filter(depth_stream != "DS3" & depth_stream != "DS4") %>%
+  filter(depth_stream != "DS1" & depth_stream != "DS5") %>%
   group_by(type) %>%
-  summarise(average_compression_time = mean(average_compression_time),
-            average_decompression_time = mean(average_decompression_time),
-            compression_ratio = mean(compression_ratio))
+  summarise(compression_ratio = mean(compression_ratio),
+            average_compression_time = mean(average_compression_time),
+            average_decompression_time = mean(average_decompression_time))
 
 comparison_table
 
+str_c("compression ratio: ", get_ratio(comparison_table$compression_ratio))
 str_c("average compression time: ", get_ratio(comparison_table$average_compression_time))
 str_c("average decompression time: ", get_ratio(comparison_table$average_decompression_time))
-str_c("compression ratio: ", get_ratio(comparison_table$compression_ratio))
 
 result_data %>%
   filter(type == "TRVL w/o Invalitiy Tolerance") %>%
@@ -95,7 +181,7 @@ result_data %>%
   { str_c("TRVL w/o Invalitiy Tolerance PSNR mean: ", mean(.), ", min: ", min(.)) }
 
 result_data %>%
-  filter(type == "TRVL") %>%
+  filter(type == "TRVL 1 cm") %>%
   pull(average_psnr) %>%
   { str_c("TRVL PSNR mean: ", mean(.), ", min: ", min(.)) }
 ```

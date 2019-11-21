@@ -165,7 +165,7 @@ void write_result_output_line(std::ofstream& result_output, InputFile& input_fil
 Result run_rvl(InputFile& input_file)
 {
     int frame_size = input_file.width() * input_file.height();
-    int depth_buffer_size = frame_size * sizeof(short);
+    int depth_buffer_size = frame_size * sizeof(short); 
     // For the raw pixels from the input file.
     std::vector<short> depth_buffer(frame_size);
     // For the RVL compressed frame.
@@ -348,7 +348,7 @@ void run_one_video()
     }
 }
 
-void run_all_videos()
+void run_all()
 {
     const std::string DATA_FOLDER_PATH = "../../../data/";
     const std::string RESULT_OUTPUT_FILE_PATH = "../../../output/result.csv";
@@ -387,6 +387,24 @@ void run_all_videos()
             Result trvl_result(run_trvl(input_file, CHANGE_THRESHOLD, INVALIDATION_THRESHOLD));
             write_result_output_line(result_output, input_file, "trvl", CHANGE_THRESHOLD, INVALIDATION_THRESHOLD, trvl_result);
         }
+        // TRVL with 5 mm as the change threshold.
+        {
+            reset_input_file(input_file);
+            Result trvl_result(run_trvl(input_file, 5, INVALIDATION_THRESHOLD));
+            write_result_output_line(result_output, input_file, "trvl", 5, INVALIDATION_THRESHOLD, trvl_result);
+        }
+        // TRVL with 2 cm as the change threshold.
+        {
+            reset_input_file(input_file);
+            Result trvl_result(run_trvl(input_file, 20, INVALIDATION_THRESHOLD));
+            write_result_output_line(result_output, input_file, "trvl", 20, INVALIDATION_THRESHOLD, trvl_result);
+        }
+        // TRVL with 3 cm as the change threshold.
+        {
+            reset_input_file(input_file);
+            Result trvl_result(run_trvl(input_file, 30, INVALIDATION_THRESHOLD));
+            write_result_output_line(result_output, input_file, "trvl", 30, INVALIDATION_THRESHOLD, trvl_result);
+        }
     }
 }
 
@@ -397,7 +415,7 @@ void main()
     std::cin >> input;
 
     if (input == "y" || input == "Y") {
-        run_all_videos();
+        run_all();
         return;
     }
 
