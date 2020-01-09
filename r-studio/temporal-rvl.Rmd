@@ -53,7 +53,7 @@ result_data <- read_csv("../output/result.csv") %>%
   select(depth_stream, type, compression_ratio, average_compression_time, average_decompression_time, average_psnr)
 ```
 
-```{r, fig.width=8, fig.height=5}
+```{r, fig.width=6, fig.height=5}
 to_methods_type <- function(type) {
   if(type == "RVL" | type == "TRVL w/o Preprocessing" | type == "TRVL w/o Invalitiy Tolerance")
     return(type)
@@ -73,23 +73,23 @@ methods_data %>%
   mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Compression Method") +
+  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Method") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 
 methods_data %>%
-  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Compression Time (ms)", fill = "Compression Method") +
+  labs(x = "Depth Stream", y = "Compression Time (ms)", fill = "Method") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 
 methods_data %>%
-  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Compression Method") +
+  labs(x = "Depth Stream", y = "Decompression Time (ms)", fill = "Method") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 
@@ -97,12 +97,12 @@ methods_data %>%
   mutate(label = map_chr(average_psnr, ~ formatC(.x,, digits = 2, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_psnr, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Compression Method") +
+  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Method") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 ```
 
-```{r, fig.width=8, fig.height=5}
+```{r, fig.width=6, fig.height=5}
 to_thresholds_type <- function(type) {
   if(type == "TRVL 0.5 cm")
     return("0.5 cm")
@@ -128,31 +128,31 @@ thresholds_data %>%
   mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Change Threshold") +
+  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Threshold") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 
 thresholds_data %>%
-  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Compression Time (ms)", fill = "Change Threshold") +
+  labs(x = "Depth Stream", y = "Compression Time (ms)", fill = "Threshold") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 
 thresholds_data %>%
-  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average Decompression Time (ms)", fill = "Change Threshold") +
+  labs(x = "Depth Stream", y = "Decompression Time (ms)", fill = "Threshold") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 
 thresholds_data %>%
-  mutate(label = map_chr(average_psnr, ~ formatC(.x,, digits = 2, format = "f"))) %>%
+  mutate(label = map_chr(average_psnr, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_psnr, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Average PSNR", fill = "Change Threshold") +
+  labs(x = "Depth Stream", y = "PSNR", fill = "Threshold") +
   geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
   theme(legend.position = "bottom")
 ```

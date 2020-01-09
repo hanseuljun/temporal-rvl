@@ -1,8 +1,6 @@
 add_executable(TemporalRvlMain
   rvl.h
-  rvl.cpp
   trvl.h
-  trvl.cpp
   main.cpp
 )
 target_link_libraries(TemporalRvlMain
