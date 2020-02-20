@@ -8,15 +8,20 @@ library(ggpubr)
 
 convert_filename_to_depth_stream <- function(filename) {
   if(filename == "ppt2-empty") {
-    return("DS1")
+    #return("DS1")
+    return("Empty")
   } else if(filename == "ppt2-sitting") {
-    return("DS2")
+    #return("DS2")
+    return("Chair")
   } else if(filename == "comm-empty") {
-    return("DS3")
+    #return("DS3")
+    return("Furniture")
   } else if(filename == "comm-standing") {
-    return("DS4")
+    #return("DS4")
+    return("Gesture")
   } else if(filename == "comm-camera-movement") {
-    return("DS5")
+    #return("DS5")
+    return("Mobile")
   } else {
     stop()
   }
@@ -50,7 +55,7 @@ convert_type_and_thresholds_to_type <- function(type, change_threshold, invalida
 result_data <- read_csv("../output/paper-result.csv") %>%
   mutate(depth_stream = map_chr(filename, convert_filename_to_depth_stream),
          type = pmap_chr(list(type, change_threshold, invalidation_threshold), convert_type_and_thresholds_to_type)) %>%
-  mutate(depth_stream = factor(depth_stream)) %>%
+  mutate(depth_stream = factor(depth_stream, c("Empty", "Chair", "Furniture", "Gesture", "Mobile"))) %>%
   select(depth_stream, type, compression_ratio, average_compression_time, average_decompression_time, average_psnr)
 ```
 
@@ -158,7 +163,7 @@ thresholds_data %>%
   theme(legend.position = "bottom")
 ```
 
-```{r poster, fig.width=12, fig.height=3.5}
+```{r poster, fig.width=12, fig.height=3}
 to_poster_type <- function(type) {
   if(type == "RVL")
     return(type)
@@ -184,37 +189,45 @@ p1 <- poster_data %>%
   mutate(label = map_chr(compression_ratio, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = compression_ratio, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Compression Ratio", fill = "Type") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.1) +
-  theme(legend.position = "bottom")
+  #labs(x = "Depth Stream", y = "Compression Ratio", fill = "Type") +
+  labs(y = "Compression Ratio", fill = "Type") +
+  #geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.1) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 p2 <- poster_data %>%
   mutate(label = map_chr(average_compression_time, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_compression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Compression Time (ms)", fill = "Type") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.1) +
-  theme(legend.position = "bottom")
+  #labs(x = "Depth Stream", y = "Compression Time (ms)", fill = "Type") +
+  labs(y = "Compression Time (ms)", fill = "Type") +
+  #geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.1) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 p3 <- poster_data %>%
   mutate(label = map_chr(average_decompression_time, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_decompression_time, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "Decompression Time (ms)", fill = "Type") +
-  geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.1) +
-  theme(legend.position = "bottom")
+  #labs(x = "Depth Stream", y = "Decompression Time (ms)", fill = "Type") +
+  labs(y = "Decompression Time (ms)", fill = "Type") +
+  #geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.1) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 p4 <- poster_data %>%
   mutate(label = map_chr(average_psnr, ~ formatC(.x,, digits = 1, format = "f"))) %>%
   ggplot(aes(x = depth_stream, y = average_psnr, fill = type)) +
   geom_col(position = "dodge") +
-  labs(x = "Depth Stream", y = "PSNR", fill = "Type") +
+  #labs(x = "Depth Stream", y = "PSNR", fill = "Type") +
+  labs(y = "PSNR", fill = "Type") +
   #geom_text(aes(label = label), position = position_dodge(0.9), vjust = -0.4) +
-  geom_text(aes(label = ifelse(label == "0.0", "", label)), position = position_dodge(0.9), vjust = -0.1) +
-  theme(legend.position = "bottom")
+  #geom_text(aes(label = ifelse(label == "0.0", "", label)), position = position_dodge(0.9), vjust = -0.1) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
-          common.legend = TRUE, legend = "bottom")
+          common.legend = TRUE, legend = "right")
 ```
 
 ```{r}
