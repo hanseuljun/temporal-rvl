@@ -88,54 +88,19 @@ cv::Mat create_depth_mat(int width, int height, const short* depth_buffer)
 void run_trvl(InputFile& input_file, short change_threshold, int invalidation_threshold)
 {
     int frame_size = input_file.width() * input_file.height();
-    int depth_buffer_size = frame_size * sizeof(short);
-    // For the raw pixels from the input file.
-    std::vector<short> depth_buffer(frame_size);
-    // For detecting changes and freezing other pixels.
-    std::vector<trvl::Pixel> trvl_pixels(frame_size);
-    // To save the pixel values of the previous frame to calculate differences between the previous and the current.
-    std::vector<short> prev_pixel_values(frame_size);
-    // The differences between the adjacent frames.
-    std::vector<short> pixel_diffs(frame_size);
-    // For the RVL compressed frame.
-    std::vector<char> rvl_frame;
-    // For the decompressed frame.
-    std::vector<short> depth_image;
 
+    trvl::Encoder encoder(frame_size, change_threshold, invalidation_threshold);
+    trvl::Decoder decoder(frame_size);
+
+    std::vector<short> depth_buffer(frame_size);
     int frame_count = 0;
 
     while (!input_file.input_stream().eof()) {
-        input_file.input_stream().read(reinterpret_cast<char*>(depth_buffer.data()), depth_buffer_size);
-        // Update the TRVL pixel values with the raw depth pixels.
-        for (int i = 0; i < frame_size; ++i) {
-            trvl::update_pixel(trvl_pixels[i], depth_buffer[i], change_threshold, invalidation_threshold);
-        }
+        input_file.input_stream().read(reinterpret_cast<char*>(depth_buffer.data()), frame_size * sizeof(short));
 
-        // For the first frame, since there is no previous frame to diff, run vanilla RVL.
-        if (frame_count == 0) {
-            for (int i = 0; i < frame_size; ++i) {
-                prev_pixel_values[i] = trvl_pixels[i].value();
-            }
-            rvl_frame = rvl::compress(prev_pixel_values.data(), frame_size);
-            depth_image = rvl::decompress(rvl_frame.data(), frame_size);
-        } else {
-            // Calculate pixel_diffs using prev_pixel_values
-            // and save current pixel values to prev_pixel_values for the next frame.
-            for (int i = 0; i < frame_size; ++i) {
-                short value = trvl_pixels[i].value();
-                pixel_diffs[i] = value - prev_pixel_values[i];
-                prev_pixel_values[i] = value;
-            }
-            // Compress and decompress the difference.
-            rvl_frame = rvl::compress(pixel_diffs.data(), frame_size);
-            auto diff_frame = rvl::decompress(rvl_frame.data(), frame_size);
-            // Update depth_image of the previous frame using the difference
-            // between the previous frame and the current frame.
-            for (int i = 0; i < frame_size; ++i) {
-                depth_image[i] += diff_frame[i];
-            }
-        }
-
+        bool keyframe = frame_count++ % 30 == 0;
+        auto trvl_frame = encoder.encode(depth_buffer.data(), false);
+        auto depth_image = decoder.decode(trvl_frame.data(), false);
         auto depth_mat = create_depth_mat(input_file.width(), input_file.height(), depth_image.data());
 
         cv::imshow("Depth", depth_mat);
@@ -166,7 +131,7 @@ void run_video()
         if (filename_index >= 0 && filename_index < filenames.size())
             break;
 
-        std::cout << "Invliad index." << std::endl;
+        std::cout << "Invalid index." << std::endl;
     }
 
     std::string filename = filenames[filename_index];

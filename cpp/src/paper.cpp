@@ -245,7 +245,7 @@ Result run_trvl(InputFile& input_file, short change_threshold, int invalidation_
         // For the first frame, since there is no previous frame to diff, run vanilla RVL.
         if (frame_count == 0) {
             for (int i = 0; i < frame_size; ++i) {
-                prev_pixel_values[i] = trvl_pixels[i].value();
+                prev_pixel_values[i] = trvl_pixels[i].value;
             }
             rvl_frame = rvl::compress(prev_pixel_values.data(), frame_size);
             compression_time_sum += compression_timer.milliseconds();
@@ -257,7 +257,7 @@ Result run_trvl(InputFile& input_file, short change_threshold, int invalidation_
             // Calculate pixel_diffs using prev_pixel_values
             // and save current pixel values to prev_pixel_values for the next frame.
             for (int i = 0; i < frame_size; ++i) {
-                short value = trvl_pixels[i].value();
+                short value = trvl_pixels[i].value;
                 pixel_diffs[i] = value - prev_pixel_values[i];
                 prev_pixel_values[i] = value;
             }
@@ -323,7 +323,7 @@ void run_one_video()
         if (filename_index >= 0 && filename_index < filenames.size())
             break;
 
-        std::cout << "Invliad index." << std::endl;
+        std::cout << "Invalid index." << std::endl;
     }
 
     std::string filename = filenames[filename_index];
