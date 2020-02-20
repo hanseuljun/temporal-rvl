@@ -106,8 +106,6 @@ void run_trvl(InputFile& input_file, short change_threshold, int invalidation_th
         cv::imshow("Depth", depth_mat);
         if (cv::waitKey(1) >= 0)
             return;
-
-        ++frame_count;
     }
 }
 
