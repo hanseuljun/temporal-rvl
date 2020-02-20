@@ -99,8 +99,8 @@ void run_trvl(InputFile& input_file, short change_threshold, int invalidation_th
         input_file.input_stream().read(reinterpret_cast<char*>(depth_buffer.data()), frame_size * sizeof(short));
 
         bool keyframe = frame_count++ % 30 == 0;
-        auto trvl_frame = encoder.encode(depth_buffer.data(), false);
-        auto depth_image = decoder.decode(trvl_frame.data(), false);
+        auto trvl_frame = encoder.encode(depth_buffer.data(), keyframe);
+        auto depth_image = decoder.decode(trvl_frame.data(), keyframe);
         auto depth_mat = create_depth_mat(input_file.width(), input_file.height(), depth_image.data());
 
         cv::imshow("Depth", depth_mat);
