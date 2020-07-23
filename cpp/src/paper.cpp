@@ -79,7 +79,7 @@ InputFile create_input_file(std::string folder_path, std::string filename)
     std::ifstream input(folder_path + filename, std::ios::binary);
 
     if (input.fail())
-        throw std::exception("The filename was invalid.");
+        throw std::runtime_error("The filename was invalid.");
 
     int width;
     int height;
@@ -88,7 +88,7 @@ InputFile create_input_file(std::string folder_path, std::string filename)
     input.read(reinterpret_cast<char*>(&height), sizeof(height));
     input.read(reinterpret_cast<char*>(&byte_size), sizeof(byte_size));
     if (byte_size != sizeof(short))
-        throw std::exception("The depth pixels are not 16-bit.");
+        throw std::runtime_error("The depth pixels are not 16-bit.");
 
     return InputFile(filename, std::move(input), width, height);
 }
