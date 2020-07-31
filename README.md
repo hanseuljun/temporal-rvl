@@ -16,4 +16,4 @@ For usage,
   2. Use them in your project.
 
 ## Citation
-Jun, H., & Bailenson, J. (2020). Temporal RVL: A Depth Stream Compression Method. Proceedings of IEEE Virtual Reality (VR). 
+Jun, H., & Bailenson, J. (2020). Temporal RVL: A Depth Stream Compression Method. Proceedings of IEEE Conference on Virtual Reality and 3D User Interfaces Abstracts and Workshops (VRW). 
